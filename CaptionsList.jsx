@@ -1,24 +1,10 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 
 // Initialize Supabase client
 // TODO: Replace with your actual Supabase URL and Anon Key
-const SUPABASE_URL =
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.SUPABASE_URL ||
-    process.env.REACT_APP_SUPABASE_URL ||
-    process.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.REACT_APP_SUPABASE_ANON_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY;
-
-const supabase =
-    SUPABASE_URL && SUPABASE_ANON_KEY
-        ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-        : null;
+import { createClient } from "./utils/supabase/client";
+const supabase = createClient();
 
 const CaptionsList = () => {
     const [captions, setCaptions] = useState([]);
