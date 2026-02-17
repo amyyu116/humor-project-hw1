@@ -42,7 +42,7 @@ export default async function ProtectedPage() {
                     </form>
                 </div>
             </div>
-            <CaptionsList />
+            <CaptionsList user={user} />
         </div>
     );
 }
