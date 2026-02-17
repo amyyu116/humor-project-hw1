@@ -1,30 +1,60 @@
 "use client";
 import React, { useEffect, useState } from "react";
-
-// Initialize Supabase client
-// TODO: Replace with your actual Supabase URL and Anon Key
 import { createClient } from "./utils/supabase/client";
+import Caption from "./Caption";
 const supabase = createClient();
 
-const CaptionsList = () => {
+const CaptionsList = ({ user }) => {
     const [captions, setCaptions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        const fetchCaptions = async () => {
+        const fetchCaptionsAndImages = async () => {
             try {
-                if (!supabase) {
-                    throw new Error("Supabase URL or Anon Key is missing.");
+                if (!supabase)
+                    throw new Error("Supabase client not initialized.");
+
+                // 1️⃣ Fetch all captions
+                const { data: captionsData, error: captionsError } =
+                    await supabase
+                        .from("captions")
+                        .select(
+                            "id, content, like_count, is_featured, image_id",
+                        )
+                        .order("like_count", { ascending: false });
+
+                if (captionsError) throw captionsError;
+
+                // 2️⃣ Collect image_ids
+                const imageIds = captionsData
+                    .map((c) => c.image_id)
+                    .filter((id) => id != null);
+
+                let imagesMap = {};
+                if (imageIds.length > 0) {
+                    // 3️⃣ Fetch images separately
+                    const { data: imagesData, error: imagesError } =
+                        await supabase
+                            .from("images")
+                            .select("id, url")
+                            .in("id", imageIds);
+
+                    if (imagesError) throw imagesError;
+
+                    // 4️⃣ Convert to map for easy lookup
+                    imagesMap = Object.fromEntries(
+                        imagesData.map((img) => [img.id, img]),
+                    );
                 }
 
-                // Fetch rows from the 'captions' table
-                const { data, error } = await supabase
-                    .from("captions")
-                    .select("*");
+                // 5️⃣ Merge images into captions
+                const merged = captionsData.map((c) => ({
+                    ...c,
+                    image: c.image_id ? imagesMap[c.image_id] : null,
+                }));
 
-                if (error) throw error;
-                setCaptions(data);
+                setCaptions(merged);
             } catch (err) {
                 console.error("Error fetching data:", err);
                 setError(err.message);
@@ -33,7 +63,7 @@ const CaptionsList = () => {
             }
         };
 
-        fetchCaptions();
+        fetchCaptionsAndImages();
     }, []);
 
     if (loading) return <div>Loading...</div>;
@@ -51,42 +81,15 @@ const CaptionsList = () => {
                         "repeat(auto-fill, minmax(300px, 1fr))",
                 }}
             >
-                {captions.map((caption) => (
-                    <div
-                        key={caption.id}
-                        className="caption-card"
-                        style={{
-                            border: "1px solid #ddd",
-                            padding: "1rem",
-                            borderRadius: "8px",
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                        }}
-                    >
-                        <p style={{ marginBottom: "0.5rem" }}>
-                            {caption.content || "No content"}
-                        </p>
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                fontSize: "0.9rem",
-                                color: "#555",
-                            }}
-                        >
-                            <span>Likes: {caption.like_count}</span>
-                            {caption.is_featured && (
-                                <span
-                                    style={{
-                                        fontWeight: "bold",
-                                        color: "gold",
-                                    }}
-                                >
-                                    Featured
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                ))}
+                {captions
+                    .filter((caption) => caption.image?.url) // Only captions with images
+                    .map((caption) => (
+                        <Caption
+                            key={caption.id}
+                            caption={caption}
+                            user={user}
+                        />
+                    ))}
             </div>
         </div>
     );
