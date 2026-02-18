@@ -1,25 +1,48 @@
-"use client"; // make this a client component
+// c:\Users\amyyu\Downloads\S26 HW\humor-project-hw\app\page.tsx
 
-import React, { useEffect, useState } from "react";
-import CaptionsList from "../CaptionsList";
-import { createClient } from "../utils/supabase/client";
+import HomeTabs from "./home-tabs";
+import { createClient } from "@/utils/supabase/server";
+import { redirect } from "next/navigation";
 
-const supabase = createClient();
+export default async function Home() {
+    const supabase = await createClient();
 
-export default function Home() {
-    const [user, setUser] = useState(null);
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
 
-    useEffect(() => {
-        const fetchUser = async () => {
-            const { data } = await supabase.auth.getUser();
-            setUser(data.user || null);
-        };
-        fetchUser();
-    }, []);
+    if (!user) {
+        return redirect("/login");
+    }
 
     return (
-        <main>
-            <CaptionsList user={user} />
-        </main>
+        <div style={{ padding: "20px" }}>
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "20px",
+                }}
+            >
+                <h1>Humor Studies Project</h1>
+                <div>
+                    <span>Welcome, {user.email}</span>
+                    <form
+                        action="/auth/signout"
+                        method="post"
+                        style={{ display: "inline-block", marginLeft: "10px" }}
+                    >
+                        <button
+                            type="submit"
+                            style={{ padding: "5px 10px", cursor: "pointer" }}
+                        >
+                            Sign out
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <HomeTabs user={user} />
+        </div>
     );
 }

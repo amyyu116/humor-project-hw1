@@ -103,6 +103,7 @@ const Caption = ({ caption, user }) => {
                     style={{
                         display: "flex",
                         alignItems: "center",
+                        justifyContent: "center",
                         gap: "0.5rem",
                     }}
                 >
