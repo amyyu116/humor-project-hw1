@@ -22,6 +22,7 @@ const CaptionsList = ({ user }) => {
         const { data: captionsData, error: captionsError } = await supabase
             .from("captions")
             .select("id, content, like_count, is_featured, image_id")
+            .eq("is_public", true)
             .order("like_count", { ascending: false })
             .range(nextOffset, nextOffset + batchSize - 1);
 
@@ -56,6 +57,7 @@ const CaptionsList = ({ user }) => {
             const { data: imagesData, error: imagesError } = await supabase
                 .from("images")
                 .select("id, url")
+                .eq("is_public", true)
                 .in("id", imageIds);
 
             if (imagesError) throw imagesError;
@@ -65,10 +67,12 @@ const CaptionsList = ({ user }) => {
             );
         }
 
-        const merged = unrankedCaptions.map((c) => ({
-            ...c,
-            image: c.image_id ? imagesMap[c.image_id] : null,
-        }));
+        const merged = unrankedCaptions
+            .map((c) => ({
+                ...c,
+                image: c.image_id ? imagesMap[c.image_id] : null,
+            }))
+            .filter((c) => c.image);
 
         merged.forEach((c) => seenIdsRef.current.add(c.id));
 
