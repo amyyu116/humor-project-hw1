@@ -98,58 +98,68 @@ export default function ImageUpload() {
     };
 
     return (
-        <div style={styles.container}>
-            <h2 style={styles.title}>
-                <ImageIcon size={18} /> Upload Image
-            </h2>
+        <div className="upload-card">
+            <div className="upload-header">
+                <div className="upload-title">
+                    <ImageIcon size={18} />
+                    <h2>Upload Image</h2>
+                </div>
+                <p className="upload-subtitle">
+                    Add a photo to generate captions and rank them.
+                </p>
+            </div>
 
-            <label style={styles.fileLabel}>
+            <label className="upload-dropzone">
                 <input
                     type="file"
                     accept="image/*"
                     onChange={handleFileChange}
-                    style={styles.fileInput}
+                    className="upload-input"
                 />
-                {file ? (
-                    file.name
-                ) : (
-                    <span style={{ color: "darkgrey" }}>Choose an image</span>
-                )}
+                <div className="upload-dropzone-inner">
+                    <div className="upload-dropzone-icon">
+                        <ImageIcon size={20} />
+                    </div>
+                    <div className="upload-dropzone-text">
+                        <span className="upload-filename">
+                            {file ? file.name : "Choose an image"}
+                        </span>
+                        <span className="upload-hint">
+                            PNG, JPG, or WEBP up to 10MB
+                        </span>
+                    </div>
+                </div>
             </label>
 
             <button
                 onClick={handleUpload}
                 disabled={!file || loading}
-                style={{
-                    ...styles.button,
-                    opacity: !file || loading ? 0.6 : 1,
-                    cursor: !file || loading ? "not-allowed" : "pointer",
-                }}
+                className="upload-button"
             >
                 {loading ? (
                     <>
-                        <Loader2 size={16} style={{ marginRight: 8 }} />
+                        <Loader2 size={16} className="upload-spin" />
                         Uploading...
                     </>
                 ) : (
                     <>
-                        <Upload size={16} style={{ marginRight: 8 }} />
+                        <Upload size={16} />
                         Upload
                     </>
                 )}
             </button>
 
-            <p style={{ color: "darkgrey" }}>
+            <p className="upload-status">
                 {status && <CheckCircle2 size={14} />}
-                {status}
+                {status || " "}
             </p>
 
-            {imageId && <p style={styles.meta}>Image ID: {imageId}</p>}
+            {imageId && <p className="upload-meta">Image ID: {imageId}</p>}
 
             {captions.length > 0 && (
-                <div style={styles.captionBox}>
-                    <h3 style={styles.captionTitle}>Generated Captions</h3>
-                    <ul style={styles.list}>
+                <div className="upload-captions">
+                    <h3>Generated Captions</h3>
+                    <ul>
                         {captions.map((caption, i) => (
                             <li key={i}>
                                 {typeof caption === "object" && caption?.content
@@ -165,86 +175,3 @@ export default function ImageUpload() {
         </div>
     );
 }
-
-const styles: { [key: string]: React.CSSProperties } = {
-    p: {
-        color: "darkgray",
-    },
-    container: {
-        display: "flex",
-        flexDirection: "column",
-        gap: 14,
-        maxWidth: 460,
-        padding: 24,
-        borderRadius: 12,
-        border: "1px solid #e5e7eb",
-        boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
-        background: "#2e2e2e",
-        fontFamily: "system-ui, sans-serif",
-    },
-    title: {
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        margin: 0,
-        fontSize: 18,
-        fontWeight: 600,
-    },
-    fileLabel: {
-        border: "1px dashed #cbd5e1",
-        borderRadius: 8,
-        padding: "12px 14px",
-        cursor: "pointer",
-        background: "#f8fafc",
-        fontSize: 14,
-    },
-    fileInput: {
-        display: "none",
-        color: "darkgray",
-    },
-    button: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "none",
-        borderRadius: 8,
-        padding: "10px 14px",
-        background: "#2563eb",
-        color: "white",
-        fontWeight: 600,
-        fontSize: 15,
-        transition: "all 0.2s ease",
-    },
-    status: {
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        minHeight: 20,
-        color: "#334155",
-        fontSize: 14,
-        margin: 0,
-    },
-    meta: {
-        fontSize: 13,
-        color: "#64748b",
-        margin: 0,
-    },
-    captionBox: {
-        marginTop: 8,
-        borderTop: "1px solid #eee",
-        paddingTop: 12,
-    },
-    captionTitle: {
-        margin: "0 0 8px",
-        fontSize: 15,
-        fontWeight: 600,
-    },
-    list: {
-        margin: 0,
-        color: "#c7dfff",
-        fontSize: 14,
-        display: "flex",
-        flexDirection: "column",
-        gap: 14,
-    },
-};

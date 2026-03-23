@@ -6,92 +6,153 @@ const supabase = createClient();
 
 const CaptionsList = ({ user }) => {
     const [captions, setCaptions] = useState([]);
+    const [currentIndex, setCurrentIndex] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState(null);
+    const [offset, setOffset] = useState(0);
+    const seenIdsRef = React.useRef(new Set());
+
+    const batchSize = 20;
+    const lowThreshold = 5;
+
+    const fetchBatch = async (nextOffset) => {
+        if (!supabase) throw new Error("Supabase client not initialized.");
+
+        const { data: captionsData, error: captionsError } = await supabase
+            .from("captions")
+            .select("id, content, like_count, is_featured, image_id")
+            .order("like_count", { ascending: false })
+            .range(nextOffset, nextOffset + batchSize - 1);
+
+        if (captionsError) throw captionsError;
+
+        const captionIds = (captionsData || []).map((c) => c.id);
+
+        let votedCaptionIds = new Set();
+        if (user?.id && captionIds.length > 0) {
+            const { data: votesData, error: votesError } = await supabase
+                .from("caption_votes")
+                .select("caption_id")
+                .eq("profile_id", user.id)
+                .in("caption_id", captionIds);
+
+            if (votesError) throw votesError;
+            votedCaptionIds = new Set(
+                (votesData || []).map((v) => v.caption_id),
+            );
+        }
+
+        const unrankedCaptions = (captionsData || []).filter(
+            (c) => !votedCaptionIds.has(c.id) && !seenIdsRef.current.has(c.id),
+        );
+
+        const imageIds = unrankedCaptions
+            .map((c) => c.image_id)
+            .filter((id) => id != null);
+
+        let imagesMap = {};
+        if (imageIds.length > 0) {
+            const { data: imagesData, error: imagesError } = await supabase
+                .from("images")
+                .select("id, url")
+                .in("id", imageIds);
+
+            if (imagesError) throw imagesError;
+
+            imagesMap = Object.fromEntries(
+                imagesData.map((img) => [img.id, img]),
+            );
+        }
+
+        const merged = unrankedCaptions.map((c) => ({
+            ...c,
+            image: c.image_id ? imagesMap[c.image_id] : null,
+        }));
+
+        merged.forEach((c) => seenIdsRef.current.add(c.id));
+
+        return { merged, nextOffset: nextOffset + batchSize };
+    };
+
+    const fetchUntilFound = async (startOffset, { append } = { append: false }) => {
+        let next = startOffset;
+        let attempts = 0;
+        let collected = [];
+
+        while (attempts < 5 && collected.length === 0) {
+            const { merged, nextOffset } = await fetchBatch(next);
+            collected = merged;
+            next = nextOffset;
+            attempts += 1;
+        }
+
+        setCaptions((prev) => (append ? [...prev, ...collected] : collected));
+        setOffset(next);
+    };
 
     useEffect(() => {
-        const fetchCaptionsAndImages = async () => {
+        let cancelled = false;
+        const run = async () => {
             try {
-                if (!supabase)
-                    throw new Error("Supabase client not initialized.");
-
-                // 1️⃣ Fetch all captions
-                const { data: captionsData, error: captionsError } =
-                    await supabase
-                        .from("captions")
-                        .select(
-                            "id, content, like_count, is_featured, image_id",
-                        )
-                        .order("like_count", { ascending: false });
-
-                if (captionsError) throw captionsError;
-
-                // 2️⃣ Collect image_ids
-                const imageIds = captionsData
-                    .map((c) => c.image_id)
-                    .filter((id) => id != null);
-
-                let imagesMap = {};
-                if (imageIds.length > 0) {
-                    // 3️⃣ Fetch images separately
-                    const { data: imagesData, error: imagesError } =
-                        await supabase
-                            .from("images")
-                            .select("id, url")
-                            .in("id", imageIds);
-
-                    if (imagesError) throw imagesError;
-
-                    // 4️⃣ Convert to map for easy lookup
-                    imagesMap = Object.fromEntries(
-                        imagesData.map((img) => [img.id, img]),
-                    );
-                }
-
-                // 5️⃣ Merge images into captions
-                const merged = captionsData.map((c) => ({
-                    ...c,
-                    image: c.image_id ? imagesMap[c.image_id] : null,
-                }));
-
-                setCaptions(merged);
+                setLoading(true);
+                if (cancelled) return;
+                await fetchUntilFound(0, { append: false });
+                if (!cancelled) setCurrentIndex(0);
             } catch (err) {
                 console.error("Error fetching data:", err);
                 setError(err.message);
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
 
-        fetchCaptionsAndImages();
-    }, []);
+        seenIdsRef.current = new Set();
+        setOffset(0);
+        run();
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id]);
+
+    const handleVoted = (captionId) => {
+        setCaptions((prev) => prev.filter((c) => c.id !== captionId));
+        setCurrentIndex(0);
+    };
+
+    useEffect(() => {
+        if (loadingMore) return;
+        if (captions.length > 0 && captions.length <= lowThreshold) {
+            const run = async () => {
+                try {
+                    setLoadingMore(true);
+                    await fetchUntilFound(offset, { append: true });
+                } catch (err) {
+                    console.error("Error fetching more captions:", err);
+                } finally {
+                    setLoadingMore(false);
+                }
+            };
+            run();
+        }
+    }, [captions.length, offset, loadingMore]);
 
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
+    if (captions.length === 0)
+        return <div>No more captions to rank.</div>;
+
+    const currentCaption = captions[currentIndex];
+    if (!currentCaption?.image?.url)
+        return <div>No more captions to rank.</div>;
 
     return (
-        <div className="captions-container" style={{ padding: "2rem" }}>
-            <h2>Captions List</h2>
-            <div
-                className="captions-grid"
-                style={{
-                    display: "grid",
-                    gap: "1rem",
-                    gridTemplateColumns:
-                        "repeat(auto-fill, minmax(300px, 1fr))",
-                }}
-            >
-                {captions
-                    .filter((caption) => caption.image?.url) // Only captions with images
-                    .map((caption) => (
-                        <Caption
-                            key={caption.id}
-                            caption={caption}
-                            user={user}
-                        />
-                    ))}
-            </div>
-        </div>
+        <Caption
+            key={currentCaption.id}
+            caption={currentCaption}
+            user={user}
+            onVoted={handleVoted}
+        />
     );
 };
 

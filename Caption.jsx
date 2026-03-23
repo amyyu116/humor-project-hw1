@@ -5,15 +5,24 @@ import { ThumbsUp, ThumbsDown } from "lucide-react";
 
 const supabase = createClient();
 
-const Caption = ({ caption, user }) => {
+const Caption = ({ caption, user, onVoted }) => {
     const [userVote, setUserVote] = useState(0); // 1 = upvote, -1 = downvote, 0 = none
     const [likes, setLikes] = useState(caption.like_count);
     const [loading, setLoading] = useState(false);
+    const [voteResolved, setVoteResolved] = useState(!user);
+    const [voteLocked, setVoteLocked] = useState(false);
 
     useEffect(() => {
         // Fetch if this user has voted on this caption already
         const fetchUserVote = async () => {
-            if (!user) return;
+            if (!user) {
+                setUserVote(0);
+                setVoteLocked(false);
+                setVoteResolved(true);
+                return;
+            }
+
+            setVoteResolved(false);
             const { data, error } = await supabase
                 .from("caption_votes")
                 .select("vote_value")
@@ -21,18 +30,21 @@ const Caption = ({ caption, user }) => {
                 .eq("profile_id", user.id)
                 .single();
 
-            console.log(user);
-            console.log(caption);
-            console.log(data);
-
             if (!error && data) {
                 setUserVote(data.vote_value);
+                setVoteLocked(true);
+            } else {
+                setUserVote(0);
+                setVoteLocked(false);
             }
+            setVoteResolved(true);
         };
         fetchUserVote();
     }, [user, caption.id]);
 
     const submitVote = async (voteValue) => {
+        if (voteLocked) return;
+
         const {
             data: { user: currentUser },
         } = await supabase.auth.getUser();
@@ -49,8 +61,8 @@ const Caption = ({ caption, user }) => {
                     profile_id: currentUser.id,
                     caption_id: caption.id,
                     vote_value: voteValue,
-                    modified_datetime_utc: new Date().toISOString(),
-                    created_datetime_utc: new Date().toISOString(),
+                    created_by_user_id: currentUser.id,
+                    modified_by_user_id: currentUser.id,
                 },
                 { onConflict: "profile_id, caption_id" },
             );
@@ -60,6 +72,13 @@ const Caption = ({ caption, user }) => {
             const delta = voteValue - userVote;
             setLikes((prev) => prev + delta);
             setUserVote(voteValue);
+            setVoteLocked(true);
+            if (onVoted) {
+                onVoted(caption.id, voteValue);
+            }
+            if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("caption-voted"));
+            }
         } catch (err) {
             console.error("Vote error:", JSON.stringify(err, null, 2));
         } finally {
@@ -68,85 +87,49 @@ const Caption = ({ caption, user }) => {
     };
 
     return (
-        <div
-            className="caption-card"
-            style={{
-                border: "1px solid #ddd",
-                padding: "1rem",
-                borderRadius: "8px",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-            }}
-        >
-            <img
-                src={caption.image.url}
-                alt="caption"
-                style={{
-                    width: "100%",
-                    borderRadius: "8px",
-                    marginBottom: "0.5rem",
-                }}
-            />
-            <p style={{ marginBottom: "0.5rem" }}>
-                {caption.content || "No content"}
-            </p>
-
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: "0.9rem",
-                    color: "#555",
-                    alignItems: "center",
-                }}
-            >
-                <div
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "0.5rem",
-                    }}
-                >
-                    <button
-                        onClick={() => submitVote(1)}
-                        disabled={loading || userVote === 1}
-                        style={{
-                            cursor: "pointer",
-                            border: "none",
-                            background: "transparent",
-                            padding: 0,
-                        }}
-                    >
-                        <ThumbsUp
-                            size={20}
-                            color={userVote === 1 ? "#2E7D32" : "#4CAF50"}
-                            fill={userVote === 1 ? "#2E7D32" : "none"}
-                        />
-                    </button>
-                    <span>{likes}</span>
-
-                    <button
-                        onClick={() => submitVote(-1)}
-                        disabled={loading || userVote === -1}
-                        style={{
-                            cursor: "pointer",
-                            border: "none",
-                            background: "transparent",
-                            padding: 0,
-                        }}
-                    >
-                        <ThumbsDown
-                            size={20}
-                            color={userVote === -1 ? "#C62828" : "#F44336"}
-                            fill={userVote === -1 ? "#C62828" : "none"}
-                        />
-                    </button>
+        <div className="caption-stack">
+            <div className="caption-card">
+                <div className="caption-media">
+                    <img
+                        src={caption.image.url}
+                        alt="caption"
+                        className="caption-image"
+                    />
+                    {caption.is_featured && (
+                        <span className="caption-badge">Featured</span>
+                    )}
                 </div>
-                {caption.is_featured && (
-                    <span style={{ fontWeight: "bold", color: "gold" }}>
-                        Featured
-                    </span>
-                )}
+                <p className="caption-text">
+                    {caption.content || "No content"}
+                </p>
+            </div>
+
+            <div className="caption-actions">
+                <button
+                    onClick={() => submitVote(1)}
+                    disabled={loading || !voteResolved || voteLocked}
+                    className="vote-button"
+                    aria-label="Upvote caption"
+                >
+                    <ThumbsUp
+                        size={30}
+                        color={userVote === 1 ? "#1f6d52" : "#2f9d76"}
+                        fill={userVote === 1 ? "#1f6d52" : "none"}
+                    />
+                </button>
+
+                <button
+                    onClick={() => submitVote(-1)}
+                    disabled={loading || !voteResolved || voteLocked}
+                    className="vote-button"
+                    aria-label="Downvote caption"
+                >
+                    <ThumbsDown
+                        size={30}
+                        color={userVote === -1 ? "#b23a2f" : "#e06055"}
+                        fill={userVote === -1 ? "#b23a2f" : "none"}
+                    />
+                </button>
             </div>
         </div>
     );
