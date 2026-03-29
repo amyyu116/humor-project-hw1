@@ -10,6 +10,7 @@ export default function ImageUpload() {
     const [captions, setCaptions] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [copyStatus, setCopyStatus] = useState<string>("");
+    const [captionProgress, setCaptionProgress] = useState(0);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
@@ -21,6 +22,7 @@ export default function ImageUpload() {
         if (!file) return;
         setLoading(true);
         setCopyStatus("");
+        setCaptionProgress(0);
 
         setStatus("Getting presigned URL...");
         setImageId(null);
@@ -76,6 +78,14 @@ export default function ImageUpload() {
             setImageId(imageId);
 
             setStatus("Generating captions...");
+            setCaptionProgress(8);
+            const progressTimer = window.setInterval(() => {
+                setCaptionProgress((prev) => {
+                    if (prev >= 92) return prev;
+                    const next = prev + Math.max(2, Math.round((100 - prev) / 12));
+                    return Math.min(next, 92);
+                });
+            }, 600);
 
             const captionResponse = await fetch("/image/caption", {
                 method: "POST",
@@ -84,16 +94,22 @@ export default function ImageUpload() {
             });
 
             if (!captionResponse.ok) {
+                window.clearInterval(progressTimer);
+                setCaptionProgress(0);
                 throw new Error("Failed to generate captions");
             }
 
             const captionsData = await captionResponse.json();
             setCaptions(captionsData);
+            window.clearInterval(progressTimer);
+            setCaptionProgress(100);
+            window.setTimeout(() => setCaptionProgress(0), 1200);
 
             setStatus("Process complete!");
         } catch (e) {
             console.error(e);
             setStatus("Upload failed");
+            setCaptionProgress(0);
         } finally {
             setLoading(false);
         }
@@ -179,6 +195,19 @@ export default function ImageUpload() {
                 {status && <CheckCircle2 size={14} />}
                 {status || " "}
             </p>
+            {captionProgress > 0 && (
+                <div className="upload-progress">
+                    <div className="upload-progress-track">
+                        <div
+                            className="upload-progress-bar"
+                            style={{ width: `${captionProgress}%` }}
+                        />
+                    </div>
+                    <span className="upload-progress-label">
+                        {captionProgress}%
+                    </span>
+                </div>
+            )}
 
             {imageId && <p className="upload-meta">Image ID: {imageId}</p>}
 

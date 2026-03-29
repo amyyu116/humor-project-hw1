@@ -92,7 +92,7 @@ export default function UserMenu({ email }: { email: string }) {
                         role="menuitem"
                         onClick={openStats}
                     >
-                        Show me my stats
+                        View stats
                     </button>
                     <form action="/auth/signout" method="post">
                         <button
