@@ -27,26 +27,63 @@ export async function POST(req: Request) {
         }
 
         // 📡 call AlmostCrackd caption endpoint
-        const response = await fetch(
-            "https://api.almostcrackd.ai/pipeline/generate-captions",
-            {
+        const upstreamUrl =
+            "https://api.almostcrackd.ai/pipeline/generate-captions";
+        const requestId = crypto.randomUUID();
+        let response: Response;
+
+        try {
+            response = await fetch(upstreamUrl, {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${session.access_token}`,
                     "Content-Type": "application/json",
+                    "X-Request-Id": requestId,
                 },
                 body: JSON.stringify({
                     imageId,
                 }),
-            },
-        );
+            });
+        } catch (err) {
+            console.error("Caption generation fetch failed:", {
+                requestId,
+                upstreamUrl,
+                error:
+                    err instanceof Error
+                        ? { name: err.name, message: err.message }
+                        : err,
+            });
+
+            return NextResponse.json(
+                {
+                    error: true,
+                    message: "Upstream caption service unreachable",
+                    requestId,
+                    upstreamUrl,
+                },
+                { status: 502 },
+            );
+        }
 
         if (!response.ok) {
             const text = await response.text();
-            console.error("Caption generation error:", text);
+            console.error("Caption generation error:", {
+                requestId,
+                upstreamUrl,
+                status: response.status,
+                statusText: response.statusText,
+                body: text,
+            });
 
             return NextResponse.json(
-                { error: "Failed to generate captions" },
+                {
+                    error: true,
+                    message: "Failed to generate captions",
+                    requestId,
+                    upstreamUrl,
+                    status: response.status,
+                    statusText: response.statusText,
+                },
                 { status: response.status },
             );
         }

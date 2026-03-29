@@ -355,9 +355,13 @@ body {
 }
 
 .upload-button:disabled {
-    opacity: 0.6;
+    opacity: 1;
     cursor: not-allowed;
     box-shadow: none;
+    background: linear-gradient(135deg, #d5c4a6 0%, #c2ad8b 100%);
+    color: rgba(60, 40, 12, 0.7);
+    border: 1px solid rgba(124, 90, 40, 0.35);
+    filter: grayscale(0.25);
 }
 
 .upload-button:not(:disabled):hover {
@@ -392,12 +396,49 @@ body {
     gap: 8px;
 }
 
+.upload-captions-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
 .upload-captions h3 {
     margin: 0;
     font-size: 14px;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: rgba(56, 40, 16, 0.7);
+}
+
+.upload-copy-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(78, 52, 16, 0.45);
+    background: linear-gradient(135deg, #3b2b14 0%, #5a3a12 100%);
+    color: #fff1d8;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 12px 18px rgba(64, 40, 10, 0.22);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.upload-copy-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 24px rgba(64, 40, 10, 0.28);
+}
+
+.upload-copy-button-inline {
+    padding: 6px 12px;
+    font-size: 11px;
+    letter-spacing: 0.03em;
 }
 
 .upload-captions ul {
@@ -410,11 +451,23 @@ body {
     color: #2c2110;
 }
 
-.upload-captions li {
+.upload-caption-row {
     padding: 10px 12px;
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.75);
     border: 1px solid rgba(124, 90, 40, 0.16);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.upload-caption-text {
+    flex: 1;
+}
+
+.upload-caption-row .upload-copy-button {
+    margin-left: auto;
 }
 
 @keyframes upload-spin {

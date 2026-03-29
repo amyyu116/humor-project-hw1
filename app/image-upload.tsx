@@ -9,6 +9,7 @@ export default function ImageUpload() {
     const [imageId, setImageId] = useState<string | null>(null);
     const [captions, setCaptions] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [copyStatus, setCopyStatus] = useState<string>("");
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
@@ -19,6 +20,7 @@ export default function ImageUpload() {
     const handleUpload = async () => {
         if (!file) return;
         setLoading(true);
+        setCopyStatus("");
 
         setStatus("Getting presigned URL...");
         setImageId(null);
@@ -97,6 +99,30 @@ export default function ImageUpload() {
         }
     };
 
+    const captionToText = (caption: any) => {
+        if (typeof caption === "object" && caption?.content) {
+            return String(caption.content);
+        }
+        if (typeof caption === "object") {
+            return JSON.stringify(caption);
+        }
+        return String(caption);
+    };
+
+    const handleCopyCaptions = async () => {
+        if (captions.length === 0) return;
+        const text = captions.map(captionToText).join("\n");
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopyStatus("Copied!");
+            window.setTimeout(() => setCopyStatus(""), 2000);
+        } catch (e) {
+            console.error(e);
+            setCopyStatus("Copy failed");
+            window.setTimeout(() => setCopyStatus(""), 2000);
+        }
+    };
+
     return (
         <div className="upload-card">
             <div className="upload-header">
@@ -158,15 +184,51 @@ export default function ImageUpload() {
 
             {captions.length > 0 && (
                 <div className="upload-captions">
-                    <h3>Generated Captions</h3>
+                    <div className="upload-captions-header">
+                        <h3>Generated Captions</h3>
+                        <button
+                            type="button"
+                            className="upload-copy-button"
+                            onClick={handleCopyCaptions}
+                        >
+                            Copy captions
+                        </button>
+                    </div>
+                    {copyStatus && (
+                        <p className="upload-copy-status">{copyStatus}</p>
+                    )}
                     <ul>
                         {captions.map((caption, i) => (
-                            <li key={i}>
-                                {typeof caption === "object" && caption?.content
-                                    ? caption.content
-                                    : typeof caption === "object"
-                                      ? JSON.stringify(caption)
-                                      : caption}
+                            <li key={i} className="upload-caption-row">
+                                <span className="upload-caption-text">
+                                    {captionToText(caption)}
+                                </span>
+                                <button
+                                    type="button"
+                                    className="upload-copy-button upload-copy-button-inline"
+                                    onClick={async () => {
+                                        const text = captionToText(caption);
+                                        try {
+                                            await navigator.clipboard.writeText(
+                                                text,
+                                            );
+                                            setCopyStatus("Copied!");
+                                            window.setTimeout(
+                                                () => setCopyStatus(""),
+                                                2000,
+                                            );
+                                        } catch (e) {
+                                            console.error(e);
+                                            setCopyStatus("Copy failed");
+                                            window.setTimeout(
+                                                () => setCopyStatus(""),
+                                                2000,
+                                            );
+                                        }
+                                    }}
+                                >
+                                    Copy
+                                </button>
                             </li>
                         ))}
                     </ul>
